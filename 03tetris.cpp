@@ -126,16 +126,17 @@ void tetris(bool init) {
         drawShape(CRGB(128, 128, 128));
 
         // Score
-        float score = clearLines(false) * 100.0;
+        float score = clearLines(false) * 10.0;
         for (const auto d : shapes[shape]) {
           const auto v = pos + rotate(d);
-          score += v.y * 0.05;
+          const auto iy = HEIGHT - v.y - 1;
+          score -= iy * iy * 0.1;
         }
         for (uint32_t x = 4; x < 12; x++) {
           uint32_t holes = 0;
           for (int32_t y = HEIGHT - 1; y >= 0; y--) {
             if (leds[idx(x, y)] == CRGB(0, 0, 0)) holes++;
-            else score -= holes;
+            else score -= holes, holes = 0;
           }
         }
 
