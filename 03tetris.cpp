@@ -1,5 +1,6 @@
 #include "matrix.h"
 
+static const uint32_t START_X = 3, END_X = 12;
 static const vec2i shapes[7][4] = {
   { vec2i(-1, 0), vec2i(0, 0), vec2i(1, 0), vec2i(2, 0) },   // I
   { vec2i(0, 0), vec2i(0, 1), vec2i(1, 0), vec2i(1, 1) },    // O
@@ -37,7 +38,7 @@ static void nextShape() {
 static void reset() {
   for (uint32_t i = 0; i < AREA; i++) leds[i] = CRGB(0, 0, 0);
   for (uint32_t y = 0; y < HEIGHT; y++) {
-    leds[idx(3, y)] = leds[idx(12, y)] = CRGB(196, 196, 0);
+    leds[idx(START_X, y)] = leds[idx(END_X, y)] = CRGB(196, 196, 0);
   }
   nextShape();
 }
@@ -71,44 +72,49 @@ static void drawShape(CRGB color) {
   }
 }
 
-uint32_t clearLines(bool apply) {
+static float score() {
+  bool clear[HEIGHT];
   uint32_t cleared = 0;
   for (uint32_t y = 0; y < HEIGHT; y++) {
-    bool clear = true;
-    for (uint32_t x = 4; x < 12; x++) {
+    clear[y] = true;
+    for (uint32_t x = START_X + 1; x < END_X; x++) {
       if (leds[idx(x, y)] == CRGB(0, 0, 0)) {
-        clear = false;
+        clear[y] = false;
         break;
       }
     }
-    if (!clear) continue;
-    cleared++;
-    if (!apply) continue;
-    for (uint32_t x = 4; x < 12; x++) leds[idx(x, y)] = CRGB(255, 255, 255);
+    if (clear[y]) cleared++;
   }
-  return cleared;
+
+  float score = cleared * 5.0;
+  for (uint32_t x = START_X + 1; x < END_X; x++) {
+    uint32_t holes = 0;
+    for (int32_t y = HEIGHT - 1; y >= 0; y--) {
+      if (clear[y]) continue;
+      if (leds[idx(x, y)] == CRGB(0, 0, 0)) holes++;
+      else score -= holes, holes = 0;
+    }
+  }
+
+  vec2i l = vec2i(12, 0), r = vec2i(4, 0);
+  for (const auto d : shapes[shape]) {
+    const auto v = pos + rotate(d);
+    if (v.x - 1 < l.x) l = v - vec2i(1, 0);
+    if (v.x + 1 > r.x) r = v + vec2i(1, 0);
+    score += v.y * 0.1;
+  }
+
+  int sidel = 0, sider = 0;
+  while (l.y + sidel < HEIGHT && leds[idx(l + vec2i(0, sidel))] == CRGB(0, 0, 0)) sidel++;
+  while (r.y + sider < HEIGHT && leds[idx(l + vec2i(0, sider))] == CRGB(0, 0, 0)) sider++;
+  score -= (max(sidel - 4, 0) + max(sider - 4, 0)) * 0.5;
+
+  return score;
 }
 
 void tetris(bool init) {
   if (init) reset();
-
   drawShape(CRGB(0, 0, 0));
-  {  // Clear lines
-    uint32_t cleared = 0;
-    for (int32_t y = HEIGHT - 1; y >= 0; y--) {
-      if (leds[idx(4, y)] == CRGB(255, 255, 255)) {
-        cleared++;
-        continue;
-      }
-
-      for (uint32_t x = 4; x < 12; x++) leds[idx(x, y + cleared)] = leds[idx(x, y)];
-    }
-
-    for (uint32_t y = 0; y < cleared; y++) {
-      for (uint32_t x = 4; x < 12; x++) leds[idx(x, y)] = CRGB(0, 0, 0);
-    }
-    if (cleared > 0) delay(200);
-  }
 
   {  // AI
     uint8_t lastRotation = rotation, bestRotation = rotation;
@@ -125,23 +131,10 @@ void tetris(bool init) {
         pos.y--;
         drawShape(CRGB(128, 128, 128));
 
-        // Score
-        float score = clearLines(false) * 10.0;
-        for (const auto d : shapes[shape]) {
-          const auto v = pos + rotate(d);
-          const auto iy = HEIGHT - v.y - 1;
-          score -= iy * iy * 0.1;
-        }
-        for (uint32_t x = 4; x < 12; x++) {
-          uint32_t holes = 0;
-          for (int32_t y = HEIGHT - 1; y >= 0; y--) {
-            if (leds[idx(x, y)] == CRGB(0, 0, 0)) holes++;
-            else score -= holes, holes = 0;
-          }
-        }
+        const auto score_ = score();
 
-        if (score > bestScore) {
-          bestScore = score;
+        if (score_ > bestScore) {
+          bestScore = score_;
           bestPosition = pos;
           bestRotation = rotation;
         }
@@ -156,16 +149,62 @@ void tetris(bool init) {
     else if (pos.x < bestPosition.x) pos.x++;
   }
 
+  bool place = false;
   if (millis() - lastDrop >= 100) {
     pos.y++;
     if (!canPlace()) {
       pos.y--;
-      drawShape(colors[shape]);
-      clearLines(true);
-      nextShape();
+      place = true;
     }
     lastDrop = millis();
   }
 
   drawShape(colors[shape]);
+  if (place) {
+    nextShape();
+
+    bool clear[HEIGHT];
+    uint32_t cleared = 0;
+    for (uint32_t y = 0; y < HEIGHT; y++) {
+      clear[y] = true;
+      for (uint32_t x = START_X + 1; x < END_X; x++) {
+        if (leds[idx(x, y)] == CRGB(0, 0, 0)) {
+          clear[y] = false;
+          break;
+        }
+      }
+      if (clear[y]) cleared++;
+    }
+
+    if (cleared == 0) return;
+    for (uint32_t x = START_X + 1; x < END_X; x++) {
+      for (uint32_t y = 0; y < HEIGHT; y++) {
+        if (!clear[y]) continue;
+        leds[idx(x, y)] = CRGB(255, 255, 255);
+      }
+      redrawMatrix();
+    }
+
+    for (int i = 255; i >= 0; i -= 10) {
+      for (uint32_t y = 0; y < HEIGHT; y++) {
+        if (!clear[y]) continue;
+        for (uint32_t x = START_X + 1; x < END_X; x++) leds[idx(x, y)] = CRGB(i, i, i);
+      }
+      redrawMatrix();
+    }
+
+    uint32_t shift = 0;
+    for (int32_t y = HEIGHT - 1; y >= 0; y--) {
+      if (clear[y]) {
+        shift++;
+        continue;
+      }
+
+      for (uint32_t x = START_X + 1; x < END_X; x++) leds[idx(x, y + shift)] = leds[idx(x, y)];
+    }
+
+    for (uint32_t y = 0; y < shift; y++) {
+      for (uint32_t x = START_X + 1; x < END_X; x++) leds[idx(x, y)] = CRGB(0, 0, 0);
+    }
+  }
 }

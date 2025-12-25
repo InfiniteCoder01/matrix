@@ -33,8 +33,8 @@ void fire(bool init, int hueHot, int hueEdge) {
   for (uint32_t y = 0; y < HEIGHT; y++) {
     for (uint32_t x = 0; x < WIDTH; x++) {
       const uint8_t iy = HEIGHT - y - 1;
-      const uint8_t hue = map(Math::max(heights[x] - iy, 0), 0, 9, hueEdge, hueHot);
-      const uint8_t value = Math::max(Math::lerp(matrix[x + y * WIDTH], matrix[x + (y + 1) * WIDTH], t) - Math::max(iy - heights[x] + 1, 0) * 256 / HEIGHT, 0);
+      const uint8_t hue = map(max((int)heights[x] - (int)iy, 0), 0, 9, hueEdge, hueHot);
+      const uint8_t value = max((int)Math::lerp(matrix[x + y * WIDTH], matrix[x + (y + 1) * WIDTH], t) - max((int)iy - (int)heights[x] + 1, 0) * 256 / (int)HEIGHT, 0);
       leds[idx(x, y)] = CHSV(hue, 255, value);
     }
   }

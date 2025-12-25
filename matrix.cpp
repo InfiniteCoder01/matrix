@@ -9,4 +9,5 @@ void setupMatrix() {
 
 void redrawMatrix() {
   FastLED.show();
+  yield();
 }
