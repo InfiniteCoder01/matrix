@@ -107,6 +107,7 @@ static float score() {
   int sidel = 0, sider = 0;
   while (l.y + sidel < HEIGHT && leds[idx(l + vec2i(0, sidel))] == CRGB(0, 0, 0)) sidel++;
   while (r.y + sider < HEIGHT && leds[idx(l + vec2i(0, sider))] == CRGB(0, 0, 0)) sider++;
+  score -= (sidel + sider) * 0.1;
   score -= (max(sidel - 4, 0) + max(sider - 4, 0)) * 0.5;
 
   return score;
@@ -206,5 +207,6 @@ void tetris(bool init) {
     for (uint32_t y = 0; y < shift; y++) {
       for (uint32_t x = START_X + 1; x < END_X; x++) leds[idx(x, y)] = CRGB(0, 0, 0);
     }
+    lastDrop = millis();
   }
 }

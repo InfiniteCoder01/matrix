@@ -10,34 +10,92 @@ static void reset() {
   leds[idx(apple)] = CRGB(255, 0, 0);
 }
 
+static bool inside(vec2i v) {
+  return v.x >= 0 && v.x < WIDTH && v.y >= 0 && v.y < HEIGHT;
+}
+
 void snake(bool init) {
   if (init) reset();
 
-  uint32_t dst[AREA];
-  for (uint32_t i = 0; i < AREA; i++) dst[i] = AREA;
+  vec2i next = body.back() + vec2i(1, 0);
   {  // Flood fill.
+    uint32_t dst[AREA];
+    for (uint32_t i = 0; i < AREA; i++) dst[i] = AREA;
+
     std::vector<vec2i> q;
     q.push_back(apple);
-    dst[apple.x + apple.y * WIDTH] = 0;
+    dst[idx(apple)] = 0;
     while (!q.empty()) {
-      vec2i v = q.front();
+      const auto v = q.front();
       q.erase(q.begin());
       for (const auto d : { vec2i(-1, 0), vec2i(1, 0), vec2i(0, -1), vec2i(0, 1) }) {
         const auto n = v + d;
-        if (n.x < 0 || n.y < 0 || n.x >= WIDTH || n.y >= HEIGHT) continue;
+        if (!inside(n)) continue;
         if (leds[idx(n)] != CRGB(0, 0, 0)) continue;
-        if (dst[n.x + n.y * WIDTH] <= dst[v.x + v.y * WIDTH] + 1) continue;
-        dst[n.x + n.y * WIDTH] = dst[v.x + v.y * WIDTH] + 1;
+        if (dst[idx(n)] <= dst[idx(v)] + 1) continue;
+        dst[idx(n)] = dst[idx(v)] + 1;
         q.push_back(n);
       }
     }
-  }
 
-  vec2i next = body.back() + vec2i(1, 0);
-  for (const auto d : { vec2i(-1, 0), vec2i(0, -1), vec2i(0, 1) }) {
-    const auto n = body.back() + d;
-    if (n.x < 0 || n.y < 0 || n.x >= WIDTH || n.y >= HEIGHT) continue;
-    if (next.x < 0 || next.y < 0 || next.x >= WIDTH || next.y >= HEIGHT || dst[n.x + n.y * WIDTH] < dst[next.x + next.y * WIDTH]) next = n;
+    for (const auto d : { vec2i(-1, 0), vec2i(0, -1), vec2i(0, 1) }) {
+      const auto n = body.back() + d;
+      if (!inside(n)) continue;
+      if (!inside(next) || dst[idx(n)] < dst[idx(next)]) next = n;
+    }
+
+    if (!inside(next) || dst[idx(next)] == AREA) {  // Panic mode
+      for (uint32_t i = 0; i < AREA; i++) dst[i] = AREA;
+
+      bool pushed[body.size()];
+      for (size_t i = 0; i < body.size(); i++) {
+        dst[idx(body[i])] = i;
+        pushed[i] = false;
+      }
+
+      q.push_back(body.front());
+      pushed[0] = true;
+      while (!q.empty()) {
+        const auto v = q.front();
+        q.erase(q.begin());
+
+        // Hack to not have to use priority_queue
+        const uint32_t pushIdx = dst[idx(v)] + 1;
+        if (pushIdx < body.size() && !pushed[pushIdx]) {
+          pushed[pushIdx] = true;
+          q.push_back(body[pushIdx]);
+        }
+
+        for (const auto d : { vec2i(-1, 0), vec2i(1, 0), vec2i(0, -1), vec2i(0, 1) }) {
+          const auto n = v + d;
+          if (!inside(n)) continue;
+          if (leds[idx(n)] != CRGB(0, 0, 0)) continue;
+          if (dst[idx(n)] <= dst[idx(v)] + 1) continue;
+          dst[idx(n)] = dst[idx(v)] + 1;
+          q.push_back(n);
+        }
+      }
+
+      // Find shortest path
+      vec2i dshortest;
+      for (const auto d : { vec2i(-1, 0), vec2i(1, 0), vec2i(0, -1), vec2i(0, 1) }) {
+        const auto n = body.back() + d;
+        if (!inside(n) || leds[idx(n)] != CRGB(0, 0, 0)) continue;
+        if (!inside(next) || leds[idx(next)] != CRGB(0, 0, 0) || dst[idx(n)] < dst[idx(next)]) {
+          next = n;
+          dshortest = d;
+        }
+      }
+
+      if (inside(next) && leds[idx(next)] == CRGB(0, 0, 0)) {  // Try to make it longer
+        for (const auto d : { vec2i(dshortest.y, dshortest.x), -vec2i(dshortest.y, dshortest.x) }) {
+          const auto n = body.back() + d, n2 = n + dshortest;
+          if (!inside(n) || leds[idx(n)] != CRGB(0, 0, 0)) continue;
+          if (!inside(n2) || leds[idx(n2)] != CRGB(0, 0, 0)) continue;
+          if (dst[idx(n)] > dst[idx(next)]) next = n;
+        }
+      }
+    }
   }
 
   if (next == apple) {  // Apple
@@ -50,7 +108,7 @@ void snake(bool init) {
       return;
     }
     leds[idx(apple)] = CRGB(255, 0, 0);
-  } else if (next.x < 0 || next.x >= WIDTH || next.y < 0 || next.y >= HEIGHT || leds[idx(next)].g >= 127) {  // Loosing
+  } else if (!inside(next) || leds[idx(next)].g >= 127) {  // Loosing
     reset();
     return;
   } else {
