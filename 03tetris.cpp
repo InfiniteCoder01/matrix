@@ -30,7 +30,14 @@ static uint32_t lastDrop = 0;
 static void reset();
 static bool canPlace();
 static void nextShape() {
-  shape = random(7);
+  static uint8_t bag[] = { 0, 1, 2, 3, 4, 5, 6 };
+  static uint8_t idx = 7;
+  if (idx >= 7) {
+    for (uint8_t i = 0; i < 7; i++) std::swap(bag[i], bag[random(7)]);
+    idx = 0;
+  }
+
+  shape = bag[idx++];
   pos = vec2i(7, 0);
   rotation = 0;
   lastDrop = millis();
@@ -109,10 +116,13 @@ static float score() {
   }
 
   uint32_t top = HEIGHT;
+  vec2i left = vec2i(WIDTH, 0), right = vec2i(0, 0);
   for (const auto d : shapes[shape]) {
     const auto v = pos + rotate(d);
     if (v.y < 0) continue;
     if (v.y < top) top = v.y;
+    if (v.x <= left.x) left = v;
+    if (v.x >= right.x) right = v;
 
     if (leds[idx(v - vec2i(1, 0))] != CRGB(0, 0, 0)) score += 1.0;
     if (leds[idx(v + vec2i(1, 0))] != CRGB(0, 0, 0)) score += 1.0;
@@ -121,6 +131,11 @@ static float score() {
 
     if (v.y + 1 < HEIGHT && leds[idx(v + vec2i(0, 1))] == CRGB(0, 0, 0)) score -= 10.0;
   }
+
+  uint32_t dleft = 0, dright = 0;
+  while (left.y + dleft < HEIGHT && leds[idx(left + vec2i(0, dleft))] == CRGB(0, 0, 0)) dleft++;
+  while (right.y + dright < HEIGHT && leds[idx(right + vec2i(0, dright))] == CRGB(0, 0, 0)) dright++;
+  score -= (dleft + dright) * 3.0;
 
   score += top * 10.0;
   return score;
