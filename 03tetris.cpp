@@ -1,5 +1,7 @@
 #include "matrix.h"
 
+// #define BENCHMARK
+
 static const uint32_t START_X = 3, END_X = 12;
 static const vec2i shapes[7][4] = {
   { vec2i(-1, 0), vec2i(0, 0), vec2i(1, 0), vec2i(2, 0) },   // I
@@ -32,6 +34,7 @@ static void nextShape() {
   pos = vec2i(7, 0);
   rotation = 0;
   lastDrop = millis();
+
   if (!canPlace()) reset();
 }
 
@@ -40,6 +43,15 @@ static void reset() {
   for (uint32_t y = 0; y < HEIGHT; y++) {
     leds[idx(START_X, y)] = leds[idx(END_X, y)] = CRGB(196, 196, 0);
   }
+
+#ifdef BENCHMARK
+  for (uint32_t y = HEIGHT / 2; y < HEIGHT; y++) {
+    for (uint32_t x = START_X + 1; x < END_X; x++) {
+      if (random(2)) leds[idx(x, y)] = CRGB(96, 96, 96);
+    }
+  }
+#endif
+
   nextShape();
 }
 
@@ -86,30 +98,31 @@ static float score() {
     if (clear[y]) cleared++;
   }
 
-  float score = cleared;
+  float score = cleared * cleared * 5.0;
   for (uint32_t x = START_X + 1; x < END_X; x++) {
-    uint32_t holes = 0;
+    uint32_t gaps = 0;
     for (int32_t y = HEIGHT - 1; y >= 0; y--) {
       if (clear[y]) continue;
-      if (leds[idx(x, y)] == CRGB(0, 0, 0)) holes++;
-      else score -= holes * 1.0, holes = 0;
+      if (leds[idx(x, y)] == CRGB(0, 0, 0)) gaps = 1;
+      else score -= gaps, gaps = 0;
     }
   }
 
-  vec2i l = vec2i(12, 0), r = vec2i(4, 0);
+  uint32_t top = HEIGHT;
   for (const auto d : shapes[shape]) {
     const auto v = pos + rotate(d);
-    score += v.y * 0.2;
-    if (v.x - 1 < l.x) l = v - vec2i(1, 0);
-    if (v.x + 1 > r.x) r = v + vec2i(1, 0);
+    if (v.y < 0) continue;
+    if (v.y < top) top = v.y;
+
+    if (leds[idx(v - vec2i(1, 0))] != CRGB(0, 0, 0)) score += 1.0;
+    if (leds[idx(v + vec2i(1, 0))] != CRGB(0, 0, 0)) score += 1.0;
+    if (v.y + 1 >= HEIGHT || leds[idx(v + vec2i(0, 1))] != CRGB(0, 0, 0)) score += 1.0;
+    if (v.y - 1 >= 0 && leds[idx(v - vec2i(0, 1))] != CRGB(0, 0, 0)) score += 1.0;
+
+    if (v.y + 1 < HEIGHT && leds[idx(v + vec2i(0, 1))] == CRGB(0, 0, 0)) score -= 10.0;
   }
 
-  int sidel = 0, sider = 0;
-  while (l.y + sidel < HEIGHT && leds[idx(l + vec2i(0, sidel))] == CRGB(0, 0, 0)) sidel++;
-  while (r.y + sider < HEIGHT && leds[idx(l + vec2i(0, sider))] == CRGB(0, 0, 0)) sider++;
-  score -= (sidel + sider) * 0.1;
-  score -= (max(sidel - 4, 0) + max(sider - 4, 0)) * 0.5;
-
+  score += top * 10.0;
   return score;
 }
 
@@ -130,9 +143,10 @@ void tetris(bool init) {
         if (!canPlace()) break;
         while (canPlace()) pos.y++;
         pos.y--;
-        drawShape(CRGB(128, 128, 128));
 
+        drawShape(CRGB(128, 128, 128));
         const auto score_ = score();
+        drawShape(CRGB(0, 0, 0));
 
         if (score_ > bestScore) {
           bestScore = score_;
@@ -140,14 +154,18 @@ void tetris(bool init) {
           bestRotation = rotation;
         }
 
-        drawShape(CRGB(0, 0, 0));
         pos.y = lastPosition.y;
       }
       pos = lastPosition;
     }
     rotation = bestRotation;
+
+#ifdef BENCHMARK
+    pos = bestPosition;
+#else
     if (pos.x > bestPosition.x) pos.x--;
     else if (pos.x < bestPosition.x) pos.x++;
+#endif
   }
 
   bool place = false;
