@@ -86,22 +86,22 @@ static float score() {
     if (clear[y]) cleared++;
   }
 
-  float score = cleared * 5.0;
+  float score = cleared;
   for (uint32_t x = START_X + 1; x < END_X; x++) {
     uint32_t holes = 0;
     for (int32_t y = HEIGHT - 1; y >= 0; y--) {
       if (clear[y]) continue;
       if (leds[idx(x, y)] == CRGB(0, 0, 0)) holes++;
-      else score -= holes, holes = 0;
+      else score -= holes * 1.0, holes = 0;
     }
   }
 
   vec2i l = vec2i(12, 0), r = vec2i(4, 0);
   for (const auto d : shapes[shape]) {
     const auto v = pos + rotate(d);
+    score += v.y * 0.2;
     if (v.x - 1 < l.x) l = v - vec2i(1, 0);
     if (v.x + 1 > r.x) r = v + vec2i(1, 0);
-    score += v.y * 0.1;
   }
 
   int sidel = 0, sider = 0;
