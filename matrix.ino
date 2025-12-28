@@ -1,11 +1,20 @@
 #include "matrix.h"
+#include "data/secrets.h"
+#include <ESPUI.h>
 
 const uint8_t BUTTON = 14;
 static uint8_t mode = 0;
 
 void setup() {
+  Serial.begin(115200);
   setupMatrix();
   pinMode(BUTTON, INPUT_PULLUP);
+
+  if (!digitalRead(BUTTON)) setupAP();
+  else setupSTA();
+
+  ESPUI.label("Status", ControlColor::Turquoise, "Ready");
+  ESPUI.begin("ESP8266 ESPUI Example");
 }
 
 void rainbow();

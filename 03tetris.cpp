@@ -129,13 +129,13 @@ static float score() {
     if (v.y + 1 >= HEIGHT || leds[idx(v + vec2i(0, 1))] != CRGB(0, 0, 0)) score += 1.0;
     if (v.y - 1 >= 0 && leds[idx(v - vec2i(0, 1))] != CRGB(0, 0, 0)) score += 1.0;
 
-    if (v.y + 1 < HEIGHT && leds[idx(v + vec2i(0, 1))] == CRGB(0, 0, 0)) score -= 10.0;
+    if (v.y + 1 < HEIGHT && leds[idx(v + vec2i(0, 1))] == CRGB(0, 0, 0)) score -= 20.0;
   }
 
   uint32_t dleft = 0, dright = 0;
   while (left.y + dleft < HEIGHT && leds[idx(left + vec2i(0, dleft))] == CRGB(0, 0, 0)) dleft++;
   while (right.y + dright < HEIGHT && leds[idx(right + vec2i(0, dright))] == CRGB(0, 0, 0)) dright++;
-  score -= (dleft + dright) * 3.0;
+  score -= (dleft * dleft + dright * dright) * 0.3;
 
   score += top * 10.0;
   return score;
