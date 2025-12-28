@@ -1,13 +1,17 @@
 #include "matrix.h"
+#include "ui.h"
 #include <vector>
 
 static std::vector<vec2i> body;
 static vec2i apple;
+static vec2i manualDir = 0;
+
 static void reset() {
   for (uint32_t i = 0; i < AREA; i++) leds[i] = CRGB(0, 0, 0);
   body = { vec2i(-3, 0), vec2i(-2, 0), vec2i(-1, 0) };
   apple = vec2i(random(WIDTH), random(HEIGHT));
   leds[idx(apple)] = CRGB(255, 0, 0);
+  if (manualDir != 0) manualDir = vec2i(1, 0);
 }
 
 static bool inside(vec2i v) {
@@ -15,10 +19,18 @@ static bool inside(vec2i v) {
 }
 
 void snake(bool init) {
-  if (init) reset();
+  if (init) {
+    manualDir = 0;
+    reset();
+  }
 
-  vec2i next = body.back() + vec2i(1, 0);
-  {  // Flood fill.
+  if (manualDir != 0) delay(100);
+  if (joy != 0) manualDir = sign(joy);
+
+  vec2i next = body.back() + manualDir;
+  if (manualDir == 0) {  // AI
+    next += vec2i(1, 0);
+
     uint32_t dst[AREA];
     for (uint32_t i = 0; i < AREA; i++) dst[i] = AREA;
 

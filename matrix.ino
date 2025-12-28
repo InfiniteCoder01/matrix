@@ -1,11 +1,8 @@
 #include "matrix.h"
+#include "ui.h"
 #include "data/secrets.h"
 
 const uint8_t BUTTON = 14;
-uint8_t mode = 0;
-
-void setupUI();
-void updateUI();
 
 void setup() {
   Serial.begin(115200);
@@ -23,7 +20,7 @@ void tetris(bool init);
 
 void loop() {
   if (!digitalRead(BUTTON)) {
-    mode = (mode + 1) % 5;
+    mode = (mode + 1) % MODE_COUNT;
     updateUI();
     delay(300);
   }

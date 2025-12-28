@@ -1,4 +1,5 @@
 #include "matrix.h"
+#include "ui.h"
 
 // #define BENCHMARK
 
@@ -141,11 +142,27 @@ static float score() {
   return score;
 }
 
+static bool manualMode = false;
 void tetris(bool init) {
-  if (init) reset();
+  if (init) {
+    manualMode = false;
+    reset();
+  }
   drawShape(CRGB(0, 0, 0));
 
-  {  // AI
+  vec2i joy_ = sign(joy);
+  if (joy_ != 0) manualMode = true;
+  if (manualMode) {
+    if (joy.y < 0) {
+      rotation = (rotation + 1) % 4;
+      if (!canPlace()) rotation = (rotation + 3) % 4;
+      joy = 0;
+    } else if (joy.x != 0) {
+      pos += joy;
+      if (!canPlace()) pos -= joy;
+      joy = 0;
+    }
+  } else {  // AI
     uint8_t lastRotation = rotation, bestRotation = rotation;
     vec2i lastPosition = pos, bestPosition = pos;
     float bestScore = -10000.0;
@@ -184,7 +201,7 @@ void tetris(bool init) {
   }
 
   bool place = false;
-  if (millis() - lastDrop >= 100) {
+  if (millis() - lastDrop >= (manualMode ? (joy.y > 0 ? 50 : 500) : 100)) {
     pos.y++;
     if (!canPlace()) {
       pos.y--;
