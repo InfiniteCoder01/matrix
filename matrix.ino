@@ -1,20 +1,19 @@
 #include "matrix.h"
 #include "data/secrets.h"
-#include <ESPUI.h>
 
 const uint8_t BUTTON = 14;
-static uint8_t mode = 0;
+uint8_t mode = 0;
+
+void setupUI();
+void updateUI();
 
 void setup() {
   Serial.begin(115200);
   setupMatrix();
   pinMode(BUTTON, INPUT_PULLUP);
 
-  if (!digitalRead(BUTTON)) setupAP();
-  else setupSTA();
-
-  ESPUI.label("Status", ControlColor::Turquoise, "Ready");
-  ESPUI.begin("ESP8266 ESPUI Example");
+  setupAP();
+  setupUI();
 }
 
 void rainbow();
@@ -24,17 +23,18 @@ void tetris(bool init);
 
 void loop() {
   if (!digitalRead(BUTTON)) {
-    mode++;
+    mode = (mode + 1) % 5;
+    updateUI();
     delay(300);
   }
 
   static uint8_t lastMode = 255;
-  if (mode == 0) rainbow();
-  else if (mode == 1) fire(lastMode != mode, 40, 0);
-  else if (mode == 2) fire(lastMode != mode, 256, 210);
-  else if (mode == 3) snake(lastMode != mode);
-  else if (mode == 4) tetris(lastMode != mode);
-  else mode = 0;
-  lastMode = mode;
+  volatile uint8_t mode_ = mode;
+  if (mode_ == 0) rainbow();
+  else if (mode_ == 1) fire(lastMode != mode_, 40, 0);
+  else if (mode_ == 2) fire(lastMode != mode_, 256, 210);
+  else if (mode_ == 3) snake(lastMode != mode_);
+  else if (mode_ == 4) tetris(lastMode != mode_);
+  lastMode = mode_;
   redrawMatrix();
 }
