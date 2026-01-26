@@ -9,7 +9,7 @@ void setup() {
   setupMatrix();
   pinMode(BUTTON, INPUT_PULLUP);
 
-  setupAP();
+  if (!digitalRead(BUTTON)) setupAP();
   setupUI();
 }
 
